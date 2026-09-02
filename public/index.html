@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MalwSentinel // Tier-2 SOC Malware Triage Console</title>
+  <meta name="description" content="Automated Malware Triage Agent powered by Google Antigravity & Gemini. Tier 2 SOC static analysis with strict containment policy enforcement.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- TOP STATUS & COMMAND BAR -->
+    <header class="navbar">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <div class="pulse-ring"></div>
+          <span class="logo-icon">🛡️</span>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">MALW<span>SENTINEL</span></div>
+          <div class="brand-subtitle">TIER-2 SOC AUTOMATED MALWARE TRIAGE</div>
+        </div>
+      </div>
+
+      <div class="system-status-group">
+        <div class="status-chip containment-chip" id="containmentBadge" title="Antigravity Decide Hook prevent_execution_hook is actively monitoring all actions">
+          <span class="indicator-dot dot-emerald"></span>
+          <span class="chip-label">STATIC CONTAINMENT:</span>
+          <span class="chip-val">HOOK ACTIVE</span>
+        </div>
+
+        <button class="status-chip engine-chip clickable-chip" id="openModelSettingsBtn" title="Click to configure AI Agent Provider (Kimi, GLM, Yi, DeepSeek, Gemini)">
+          <span class="indicator-dot dot-cyan"></span>
+          <span class="chip-label">AGENT:</span>
+          <span class="chip-val" id="modelStatus">🟢 GEMINI 2.5 FLASH</span>
+          <span class="chip-gear">⚙️</span>
+        </button>
+
+        <button class="btn btn-outline-danger" id="testViolationBtn" title="Test if prevent_execution_hook blocks prohibited shell execution">
+          <span class="btn-icon">⚡</span> Test Policy Violation
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="workspace-grid">
+      <!-- INGESTION & SAMPLE CONTROL BAR -->
+      <section class="control-panel glass-panel">
+        <div class="ingestion-header">
+          <div class="section-title">
+            <span class="title-icon">📂</span> Binary Ingestion & Target Selection
+          </div>
+          <div class="preset-selector-group">
+            <span class="preset-label">Demo Samples:</span>
+            <div class="preset-buttons" id="presetButtonsContainer">
+              <button class="preset-btn active" data-preset-id="suspicious_sample">
+                ⚠️ Simulated Backdoor
+              </button>
+              <button class="preset-btn" data-preset-id="clean_calc">
+                🛡️ Clean Windows Binary
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ingestion-body">
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" class="file-input" accept=".exe,.dll,.bin,.sys,.elf">
+            <div class="drop-zone-content">
+              <div class="upload-icon-anim">📥</div>
+              <div class="drop-main-text">Drag & drop PE executable or <span class="browse-link">browse files</span></div>
+              <div class="drop-sub-text">Supports Windows PE binaries (.exe, .dll, .sys) for static analysis triage</div>
+            </div>
+          </div>
+
+          <div class="action-dock">
+            <div class="target-file-display">
+              <span class="label">CURRENT TARGET:</span>
+              <span class="value" id="currentTargetText">./suspicious_sample.exe</span>
+              <span class="size-pill" id="targetSizeText">-- KB</span>
+            </div>
+            <div class="soc-toolkit-bar">
+              <button class="btn btn-outline-cyan" id="openYaraBtn" title="Generate YARA Detection Rule">
+                <span class="btn-icon">📜</span> YARA Rule
+              </button>
+              <button class="btn btn-outline-cyan" id="exportStixBtn" title="Export STIX 2.1 Threat Intel Bundle">
+                <span class="btn-icon">🛡️</span> STIX 2.1
+              </button>
+              <button class="btn btn-outline-cyan" id="openStringsBtn" title="Inspect Decoded Strings">
+                <span class="btn-icon">🔍</span> Strings
+              </button>
+              <button class="btn btn-secondary" id="printReportBtn" title="Print or Export to PDF">
+                <span class="btn-icon">🖨️</span> Print / PDF
+              </button>
+            </div>
+            <button class="btn btn-primary" id="startAnalysisBtn">
+              <span class="btn-spinner hidden" id="analysisSpinner"></span>
+              <span class="btn-text">Execute Static Triage Protocol</span>
+              <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TWO COLUMN OPERATIONS CONSOLE -->
+      <div class="console-columns">
+        <!-- LEFT COLUMN: AGENT INVESTIGATION TRACE & CONTAINMENT AUDIT -->
+        <div class="col-left">
+          <!-- Live Terminal Window -->
+          <div class="panel terminal-panel glass-panel">
+            <div class="panel-header">
+              <div class="terminal-dots">
+                <span class="term-dot dot-red"></span>
+                <span class="term-dot dot-yellow"></span>
+                <span class="term-dot dot-green"></span>
+              </div>
+              <div class="terminal-title">AGENT REASONING & TOOL TRACE</div>
+              <div class="terminal-live-badge">
+                <span class="live-blink"></span> LIVE HARNESS
+              </div>
+            </div>
+            <div class="terminal-body" id="terminalOutput">
+              <div class="terminal-line text-dim">MalwSentinel harness initialized. Ready for triage mission.</div>
+              <div class="terminal-line text-cyan">> Antigravity LocalAgentConfig mounted with prevent_execution_hook.</div>
+              <div class="terminal-line text-dim">> Awaiting target sample input...</div>
+            </div>
+          </div>
+
+          <!-- Policy Containment Audit -->
+          <div class="panel containment-audit-panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title">
+                <span class="title-icon">🛡️</span> Containment Policy Audit Log
+              </div>
+              <span class="audit-counter" id="auditCounter">0 checks</span>
+            </div>
+            <div class="audit-list" id="auditList">
+              <div class="audit-empty">Run analysis to inspect decide hook validations.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: TRIAGE TELEMETRY & REPORT DASHBOARD -->
+        <div class="col-right">
+          <!-- Threat Overview Header Banner -->
+          <div class="threat-overview-banner glass-panel">
+            <div class="score-dial-group">
+              <div class="score-circle" id="scoreCircle">
+                <svg viewBox="0 0 100 100" class="dial-svg">
+                  <circle class="dial-bg" cx="50" cy="50" r="42"></circle>
+                  <circle class="dial-fill" id="dialFill" cx="50" cy="50" r="42"></circle>
+                </svg>
+                <div class="score-number" id="threatScoreNum">--</div>
+              </div>
+              <div class="score-labels">
+                <div class="score-title">SEVERITY RATING</div>
+                <div class="threat-badge badge-pending" id="threatLevelBadge">PENDING ANALYSIS</div>
+              </div>
+            </div>
+
+            <div class="quick-stats-grid">
+              <div class="stat-box">
+                <span class="stat-label">PACKING STATUS</span>
+                <span class="stat-value" id="statPacking">--</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">SUSPICIOUS APIS</span>
+                <span class="stat-value" id="statApis">--</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">NETWORK IOCS</span>
+                <span class="stat-value" id="statIocs">--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cryptographic Fingerprints -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">🔑</span> Cryptographic Fingerprints</div>
+            </div>
+            <div class="hashes-container">
+              <div class="hash-row">
+                <span class="hash-type">MD5</span>
+                <span class="hash-val" id="md5Val">--------------------------------</span>
+                <button class="copy-btn" data-copy-target="md5Val" title="Copy MD5">📋</button>
+              </div>
+              <div class="hash-row">
+                <span class="hash-type">SHA256</span>
+                <span class="hash-val" id="sha256Val">----------------------------------------------------------------</span>
+                <button class="copy-btn" data-copy-target="sha256Val" title="Copy SHA256">📋</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shannon Entropy Meter & Packing Breakdown -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">📊</span> Shannon Byte Entropy</div>
+              <span class="entropy-badge" id="entropyNumeric">0.00 / 8.00</span>
+            </div>
+            <div class="entropy-meter-container">
+              <div class="entropy-track">
+                <div class="entropy-fill" id="entropyFill" style="width: 0%;"></div>
+                <div class="entropy-packer-threshold" title="Packing Threshold (7.0)">
+                  <span>7.0 Threshold</span>
+                </div>
+              </div>
+              <div class="entropy-labels">
+                <span>0.0 (Uniform)</span>
+                <span>4.0 (Normal Binary)</span>
+                <span>7.0 (Packed / Encrypted)</span>
+                <span>8.0 (Maximum)</span>
+              </div>
+              <div class="entropy-analysis-note" id="entropyAnalysisText">
+                Calculate file entropy to measure compression, obfuscation, or packed payload headers.
+              </div>
+            </div>
+          </div>
+
+          <!-- PE Section Breakdown Visualizer -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">🧩</span> PE Section Memory Map</div>
+              <span class="sections-badge" id="sectionsCount">0 Sections</span>
+            </div>
+            <div class="pe-sections-container" id="peSectionsContainer">
+              <div class="sections-empty">No PE section data loaded yet.</div>
+            </div>
+          </div>
+
+          <!-- Suspicious Win32 Imports -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">⚠️</span> Flagged Suspicious Imports</div>
+              <span class="badge-count" id="suspiciousCountBadge">0 detected</span>
+            </div>
+            <div class="suspicious-tags-container" id="suspiciousImportsContainer">
+              <div class="tags-empty">No suspicious imports analyzed yet.</div>
+            </div>
+          </div>
+
+          <!-- MITRE ATT&CK Mapping Matrix -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">🎯</span> MITRE ATT&CK Mapping Matrix</div>
+              <span class="badge-count" id="mitreCountBadge">0 mapped</span>
+            </div>
+            <div class="mitre-matrix-container" id="mitreMatrixContainer">
+              <div class="tags-empty">Execute triage to map detected capabilities to MITRE ATT&CK framework.</div>
+            </div>
+          </div>
+
+          <!-- Indicators of Compromise (IoC) Explorer -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">🌐</span> Indicators of Compromise (IoCs)</div>
+              <button class="btn btn-sm btn-outline-cyan" id="exportIocsBtn" title="Export IoCs to JSON">
+                💾 Export JSON
+              </button>
+            </div>
+            <div class="ioc-tabs">
+              <button class="ioc-tab-btn active" data-tab="ips">
+                IPv4 C2 (<span id="ipCount">0</span>)
+              </button>
+              <button class="ioc-tab-btn" data-tab="urls">
+                Network URLs (<span id="urlCount">0</span>)
+              </button>
+              <button class="ioc-tab-btn" data-tab="registry">
+                Registry Keys (<span id="regCount">0</span>)
+              </button>
+            </div>
+            <div class="ioc-content-area" id="iocContentArea">
+              <div class="ioc-list" id="iocList">
+                <div class="ioc-empty">No indicators extracted yet.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Final Threat Intelligence Report View -->
+          <div class="panel glass-panel">
+            <div class="panel-header">
+              <div class="section-title"><span class="title-icon">📋</span> Final Threat Intelligence Report</div>
+              <button class="btn btn-sm btn-outline-cyan" id="copyReportBtn">
+                📋 Copy Report
+              </button>
+            </div>
+            <div class="report-content" id="reportContentArea">
+              <div class="report-placeholder">
+                Run the static triage protocol to view the synthesized Threat Intelligence Report.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SECURITY VIOLATION DEMO MODAL -->
+    <div class="modal-overlay hidden" id="violationModal">
+      <div class="modal-card glass-panel">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-alert-icon">🛑</span>
+            <h3>CONTAINMENT POLICY HOOK ENFORCEMENT</h3>
+          </div>
+          <button class="modal-close-btn" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            To test the <strong>prevent_execution_hook</strong>, an action was simulated that attempted dynamic execution outside the authorized static analysis boundary.
+          </p>
+          <div class="code-block" id="modalActionText">
+            Action: run_command("powershell.exe -ExecutionPolicy Bypass -File ./suspicious_sample.exe")
+          </div>
+          <div class="violation-response" id="modalResultText">
+            <div class="violation-status">DECISION: <span class="badge-deny">DENY</span></div>
+            <div class="violation-message">
+              "SECURITY VIOLATION: Dynamic execution blocked. You are restricted to static analysis tools only."
+            </div>
+          </div>
+          <div class="modal-note">
+            🛡️ <strong>Safety Guarantee:</strong> The Antigravity Decide hook intercepts and aborts execution before any process can spawn or run on the host.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="acknowledgeModalBtn">Acknowledge & Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- YARA RULE GENERATOR MODAL -->
+    <div class="modal-overlay hidden" id="yaraModal">
+      <div class="modal-card glass-panel modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-alert-icon">📜</span>
+            <h3>AUTO-GENERATED YARA DETECTION RULE</h3>
+          </div>
+          <button class="modal-close-btn" id="closeYaraModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Detection signature generated from static artifacts, extracted byte sequences, and cryptographic hashes.
+          </p>
+          <pre class="code-block yara-code-block" id="yaraCodeBlock">/* Run triage to generate YARA signature */</pre>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-cyan" id="copyYaraBtn">📋 Copy Rule</button>
+          <button class="btn btn-primary" id="downloadYaraBtn">💾 Download .yar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STRINGS INSPECTOR MODAL -->
+    <div class="modal-overlay hidden" id="stringsModal">
+      <div class="modal-card glass-panel modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-alert-icon">🔍</span>
+            <h3>DECODED BINARY STRINGS INSPECTOR</h3>
+          </div>
+          <button class="modal-close-btn" id="closeStringsModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="strings-search-bar">
+            <input type="text" id="stringsSearchInput" class="text-input" placeholder="Filter strings (e.g., http, hklm, shell, .dll, error)...">
+            <span class="strings-count-label" id="stringsFilteredCount">0 strings</span>
+          </div>
+          <div class="strings-table-wrap">
+            <table class="sections-table strings-table">
+              <thead>
+                <tr>
+                  <th style="width: 100px;">Offset</th>
+                  <th style="width: 100px;">Encoding</th>
+                  <th>Extracted String</th>
+                </tr>
+              </thead>
+              <tbody id="stringsTableBody">
+                <tr><td colspan="3" class="tags-empty">No strings loaded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-cyan" id="copyStringsBtn">📋 Copy All Strings</button>
+          <button class="btn btn-secondary" id="closeStringsBottomBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI MODEL & PROVIDER CONFIGURATION MODAL -->
+    <div class="modal-overlay hidden" id="modelSettingsModal">
+      <div class="modal-card glass-panel" style="max-width: 580px;">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-alert-icon">🤖</span>
+            <h3>AI AGENT & MODEL CONFIGURATION</h3>
+          </div>
+          <button class="modal-close-btn" id="closeModelModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Select the AI model provider powering Tier-2 SOC threat reasoning and intelligence synthesis.
+          </p>
+          <div class="settings-form-group">
+            <label for="providerSelect" class="form-label">AI Provider Engine</label>
+            <select id="providerSelect" class="text-input select-input">
+              <option value="gemini">🟢 Google Gemini (Antigravity SDK)</option>
+              <option value="tokenra">🐂 Tokenra (Ox Alpha / Kimi / GLM)</option>
+              <option value="kimi">🌙 Moonshot AI / Kimi (moonshot-v1-8k)</option>
+              <option value="glm">⚡ Zhipu AI / GLM (glm-4-flash)</option>
+              <option value="yi">🌐 01.AI / Yi (yi-lightning)</option>
+              <option value="deepseek">🧬 DeepSeek (deepseek-chat)</option>
+              <option value="custom">⚙️ Custom OpenAI-Compatible (Ollama / vLLM)</option>
+            </select>
+          </div>
+
+          <div class="settings-form-group">
+            <label for="modelNameInput" class="form-label">Model Identifier</label>
+            <input type="text" id="modelNameInput" class="text-input" placeholder="e.g. gemini-2.5-flash, glm-4-flash, moonshot-v1-8k">
+          </div>
+
+          <div class="settings-form-group">
+            <label for="baseUrlInput" class="form-label">API Base URL</label>
+            <input type="text" id="baseUrlInput" class="text-input" placeholder="https://api.openai.com/v1">
+          </div>
+
+          <div class="settings-form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="apiKeyInput" class="form-label" style="margin-bottom: 0;">API Key (Stored locally in browser)</label>
+              <button type="button" class="btn btn-xs" id="toggleKeyVisibilityBtn" style="font-size: 11px; padding: 2px 6px;">👁️ Show Key</button>
+            </div>
+            <input type="password" id="apiKeyInput" class="text-input" placeholder="sk-... / API key (Leave blank to use .env key)">
+            <div class="text-dim" style="font-size: 11px; margin-top: 4px;" id="envKeyStatusText">
+              💡 If left blank, server defaults to key defined in .env
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancelModelModalBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveModelSettingsBtn">Save & Apply Agent</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

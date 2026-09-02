@@ -1,0 +1,12 @@
+# Vercel Deployment Ignore
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+.env
+uploads/
+scratch/
+brain/
+*.log
