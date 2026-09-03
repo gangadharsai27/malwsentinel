@@ -789,7 +789,11 @@ document.addEventListener('DOMContentLoaded', () => {
         baseUrlInput.value = p.base_url;
         baseUrlInput.dataset.autoFilled = 'true';
       }
-      envKeyStatusText.textContent = `💡 Server defaults to ${p.env_key} in .env if left blank.`;
+      if (selectedPid === 'lmstudio') {
+        envKeyStatusText.textContent = '💡 LM Studio runs locally at http://127.0.0.1:1234/v1. No API key required!';
+      } else {
+        envKeyStatusText.textContent = `💡 Server defaults to ${p.env_key} in .env if left blank.`;
+      }
     }
   }
 

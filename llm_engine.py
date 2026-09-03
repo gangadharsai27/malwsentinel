@@ -22,10 +22,18 @@ PROVIDER_PRESETS = {
         "env_key": "GEMINI_API_KEY",
         "doc": "Default high-speed agent powered by Google Antigravity SDK.",
     },
+    "lmstudio": {
+        "id": "lmstudio",
+        "name": "LM Studio (Local)",
+        "icon": "💻",
+        "default_model": "local-model",
+        "base_url": "http://127.0.0.1:1234/v1",
+        "env_key": "LM_STUDIO_API_KEY",
+        "doc": "Local offline LLM inference running on LM Studio via http://localhost:1234/v1.",
+    },
     "kimi": {
         "id": "kimi",
-        "name": "Moonshot AI / Kimi",
-        "icon": "🌙",
+        "name": "Kimi",
         "default_model": "moonshot-v1-8k",
         "base_url": "https://api.moonshot.cn/v1",
         "env_key": "KIMI_API_KEY",
@@ -34,7 +42,6 @@ PROVIDER_PRESETS = {
     "glm": {
         "id": "glm",
         "name": "Zhipu AI / GLM",
-        "icon": "⚡",
         "default_model": "glm-4-flash",
         "base_url": "https://open.bigmodel.cn/api/paas/v4",
         "env_key": "GLM_API_KEY",
@@ -43,7 +50,6 @@ PROVIDER_PRESETS = {
     "yi": {
         "id": "yi",
         "name": "01.AI / Yi",
-        "icon": "🌐",
         "default_model": "yi-lightning",
         "base_url": "https://api.01.ai/v1",
         "env_key": "YI_API_KEY",
@@ -52,7 +58,6 @@ PROVIDER_PRESETS = {
     "deepseek": {
         "id": "deepseek",
         "name": "DeepSeek",
-        "icon": "🧬",
         "default_model": "deepseek-chat",
         "base_url": "https://api.deepseek.com/v1",
         "env_key": "DEEPSEEK_API_KEY",
@@ -61,7 +66,6 @@ PROVIDER_PRESETS = {
     "tokenra": {
         "id": "tokenra",
         "name": "Tokenra (Ox Alpha / Kimi / GLM)",
-        "icon": "🐂",
         "default_model": "ox-alpha",
         "base_url": "https://tokenra.io/v1",
         "env_key": "TOKENRA_API_KEY",
@@ -70,7 +74,6 @@ PROVIDER_PRESETS = {
     "custom": {
         "id": "custom",
         "name": "Custom OpenAI-Compatible",
-        "icon": "⚙️",
         "default_model": "custom-model",
         "base_url": "http://localhost:11434/v1",
         "env_key": "OPENAI_API_KEY",
@@ -101,10 +104,21 @@ def get_provider_metadata() -> List[Dict[str, Any]]:
     for pid, meta in PROVIDER_PRESETS.items():
         key_name = meta["env_key"]
         has_key = bool(os.environ.get(key_name) or (pid == "gemini" and os.environ.get("GEMINI_API_KEY")))
+
+        # Check if local LM Studio is running
+        if pid == "lmstudio":
+            try:
+                test_req = urllib.request.Request("http://127.0.0.1:1234/v1/models")
+                with urllib.request.urlopen(test_req, timeout=1) as resp:
+                    if resp.status == 200:
+                        has_key = True
+            except Exception:
+                pass
+
         providers.append({
             "id": pid,
             "name": meta["name"],
-            "icon": meta["icon"],
+            "icon": meta.get("icon", "🤖"),
             "default_model": meta["default_model"],
             "base_url": meta["base_url"],
             "env_key": key_name,
@@ -189,8 +203,8 @@ class UnifiedTriageAgent:
                     "agent_note": f"Synthesized by Google Antigravity Agent ({self.model})",
                 }
 
-        # 2. OpenAI-Compatible Providers (Kimi, GLM, Yi, DeepSeek, Custom)
-        if self.api_key and self.base_url:
+        # 2. OpenAI-Compatible Providers (LM Studio, Kimi, GLM, Yi, DeepSeek, Custom)
+        if self.base_url and (self.api_key or self.provider in ("lmstudio", "custom") or "1234" in self.base_url or "localhost" in self.base_url):
             try:
                 report = await self._call_openai_compatible(system_prompt, user_content)
                 if report:
@@ -245,30 +259,55 @@ class UnifiedTriageAgent:
         endpoint = f"{self.base_url}/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MalwSentinel/2.0",
         }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
+        # Resolve target model (auto-detect if using LM Studio or local-model)
+        target_model = self.model
+        if self.provider == "lmstudio" or "1234" in self.base_url or target_model in ("local-model", "", None):
+            try:
+                m_req = urllib.request.Request(f"{self.base_url}/models", headers={"User-Agent": "MalwSentinel"})
+                if self.api_key:
+                    m_req.add_header("Authorization", f"Bearer {self.api_key}")
+                with urllib.request.urlopen(m_req, timeout=3) as m_resp:
+                    m_data = json.loads(m_resp.read().decode("utf-8"))
+                    available = [m["id"] for m in m_data.get("data", [])]
+                    loaded = next((m for m in available if "embed" not in m.lower()), available[0] if available else None)
+                    if loaded:
+                        target_model = loaded
+                        self.model = loaded
+            except Exception:
+                pass
+
+        # For local models (LM Studio), use concise token limit (250) to keep latency fast
+        token_limit = 250 if ("1234" in self.base_url or "localhost" in self.base_url) else 1500
         payload = {
-            "model": self.model,
+            "model": target_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.2,
-            "max_tokens": 1500,
+            "max_tokens": token_limit,
         }
 
         data_bytes = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(endpoint, data=data_bytes, headers=headers, method="POST")
 
         ctx = ssl._create_unverified_context() if "tokenra.io" in self.base_url else None
-        with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+        req_timeout = 180 if ("1234" in self.base_url or "localhost" in self.base_url) else 30
+        with urllib.request.urlopen(req, context=ctx, timeout=req_timeout) as resp:
             resp_body = resp.read().decode("utf-8")
             res_json = json.loads(resp_body)
             choices = res_json.get("choices", [])
             if choices and "message" in choices[0]:
-                return choices[0]["message"].get("content", "").strip()
+                msg = choices[0]["message"]
+                content = msg.get("content", "")
+                if not content and "reasoning_content" in msg:
+                    content = msg.get("reasoning_content", "")
+                return (content or "").strip()
             return ""
 
     def _build_deterministic_report(
