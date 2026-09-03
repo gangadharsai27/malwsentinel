@@ -31,53 +31,14 @@ PROVIDER_PRESETS = {
         "env_key": "LM_STUDIO_API_KEY",
         "doc": "Local offline LLM inference running on LM Studio via http://localhost:1234/v1.",
     },
-    "kimi": {
-        "id": "kimi",
-        "name": "Kimi",
-        "default_model": "moonshot-v1-8k",
-        "base_url": "https://api.moonshot.cn/v1",
-        "env_key": "KIMI_API_KEY",
-        "doc": "Moonshot AI Kimi model with high-context reasoning capabilities.",
-    },
-    "glm": {
-        "id": "glm",
-        "name": "Zhipu AI / GLM",
-        "default_model": "glm-4-flash",
-        "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "env_key": "GLM_API_KEY",
-        "doc": "Zhipu GLM-4 series (glm-4-flash, glm-4), fast and cost-effective.",
-    },
-    "yi": {
-        "id": "yi",
-        "name": "01.AI / Yi",
-        "default_model": "yi-lightning",
-        "base_url": "https://api.01.ai/v1",
-        "env_key": "YI_API_KEY",
-        "doc": "01.AI Yi-Lightning high-performance reasoning model.",
-    },
-    "deepseek": {
-        "id": "deepseek",
-        "name": "DeepSeek",
-        "default_model": "deepseek-chat",
-        "base_url": "https://api.deepseek.com/v1",
-        "env_key": "DEEPSEEK_API_KEY",
-        "doc": "DeepSeek V3 / R1 reasoning model via official API.",
-    },
-    "tokenra": {
-        "id": "tokenra",
-        "name": "Tokenra (Ox Alpha / Kimi / GLM)",
-        "default_model": "ox-alpha",
-        "base_url": "https://tokenra.io/v1",
-        "env_key": "TOKENRA_API_KEY",
-        "doc": "Tokenra platform hosting Ox Alpha, Kimi-k3, and GLM-5.3 models.",
-    },
-    "custom": {
-        "id": "custom",
-        "name": "Custom OpenAI-Compatible",
-        "default_model": "custom-model",
-        "base_url": "http://localhost:11434/v1",
-        "env_key": "OPENAI_API_KEY",
-        "doc": "Any OpenAI-compatible API (Ollama, vLLM, OpenRouter, LM Studio).",
+    "openrouter": {
+        "id": "openrouter",
+        "name": "OpenRouter (Free Models)",
+        "icon": "🚀",
+        "default_model": "deepseek/deepseek-r1:free",
+        "base_url": "https://openrouter.ai/api/v1",
+        "env_key": "OPENROUTER_API_KEY",
+        "doc": "Access 100% free models via OpenRouter (e.g. deepseek/deepseek-r1:free, meta-llama/llama-3.3-70b-instruct:free).",
     },
 }
 
@@ -263,6 +224,9 @@ class UnifiedTriageAgent:
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        if "openrouter" in self.base_url:
+            headers["HTTP-Referer"] = "https://malwsentinel.vercel.app"
+            headers["X-Title"] = "MalwSentinel"
 
         # Resolve target model (auto-detect if using LM Studio or local-model)
         target_model = self.model
