@@ -15,8 +15,7 @@ from typing import Dict, Any, List, Optional
 PROVIDER_PRESETS = {
     "gemini": {
         "id": "gemini",
-        "name": "Google Gemini (Antigravity)",
-        "icon": "🟢",
+        "name": "Google Gemini",
         "default_model": "gemini-2.5-flash",
         "base_url": "https://generativelanguage.googleapis.com",
         "env_key": "GEMINI_API_KEY",
@@ -25,7 +24,6 @@ PROVIDER_PRESETS = {
     "lmstudio": {
         "id": "lmstudio",
         "name": "LM Studio (Local)",
-        "icon": "💻",
         "default_model": "local-model",
         "base_url": "http://127.0.0.1:1234/v1",
         "env_key": "LM_STUDIO_API_KEY",
@@ -33,8 +31,7 @@ PROVIDER_PRESETS = {
     },
     "openrouter": {
         "id": "openrouter",
-        "name": "OpenRouter (Free Models)",
-        "icon": "🚀",
+        "name": "OpenRouter",
         "default_model": "minimax/minimax-m3:free",
         "base_url": "https://openrouter.ai/api/v1",
         "env_key": "OPENROUTER_API_KEY",
@@ -262,17 +259,35 @@ class UnifiedTriageAgent:
 
         ctx = ssl._create_unverified_context() if "tokenra.io" in self.base_url else None
         req_timeout = 180 if ("1234" in self.base_url or "localhost" in self.base_url) else 30
-        with urllib.request.urlopen(req, context=ctx, timeout=req_timeout) as resp:
-            resp_body = resp.read().decode("utf-8")
-            res_json = json.loads(resp_body)
-            choices = res_json.get("choices", [])
-            if choices and "message" in choices[0]:
-                msg = choices[0]["message"]
-                content = msg.get("content", "")
-                if not content and "reasoning_content" in msg:
-                    content = msg.get("reasoning_content", "")
-                return (content or "").strip()
-            return ""
+
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=req_timeout) as resp:
+                resp_body = resp.read().decode("utf-8")
+                res_json = json.loads(resp_body)
+                choices = res_json.get("choices", [])
+                if choices and "message" in choices[0]:
+                    msg = choices[0]["message"]
+                    content = msg.get("content", "")
+                    if not content and "reasoning_content" in msg:
+                        content = msg.get("reasoning_content", "")
+                    return (content or "").strip()
+                return ""
+        except urllib.error.HTTPError as http_err:
+            # If an OpenRouter model returns 403 (restricted), 404 (unavailable), or 429 (rate-limited),
+            # automatically fallback to the verified free working model 'minimax/minimax-m3:free'
+            if "openrouter" in self.base_url and target_model != "minimax/minimax-m3:free":
+                print(f"[!] OpenRouter model '{target_model}' returned HTTP {http_err.code}. Auto-recovering with 'minimax/minimax-m3:free'...")
+                payload["model"] = "minimax/minimax-m3:free"
+                self.model = "minimax/minimax-m3:free"
+                retry_bytes = json.dumps(payload).encode("utf-8")
+                retry_req = urllib.request.Request(endpoint, data=retry_bytes, headers=headers, method="POST")
+                with urllib.request.urlopen(retry_req, context=ctx, timeout=req_timeout) as retry_resp:
+                    retry_json = json.loads(retry_resp.read().decode("utf-8"))
+                    retry_choices = retry_json.get("choices", [])
+                    if retry_choices and "message" in retry_choices[0]:
+                        msg = retry_choices[0]["message"]
+                        return (msg.get("content", "") or msg.get("reasoning_content", "")).strip()
+            raise http_err
 
     def _build_deterministic_report(
         self,
