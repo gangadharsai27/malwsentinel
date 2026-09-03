@@ -37,6 +37,14 @@ PROVIDER_PRESETS = {
         "env_key": "OPENROUTER_API_KEY",
         "doc": "Access 100% free models via OpenRouter (e.g. minimax/minimax-m3:free, nvidia/nemotron-3.5-lightning:free).",
     },
+    "groq": {
+        "id": "groq",
+        "name": "Groq Cloud (LPU Ultra-Fast)",
+        "default_model": "qwen/qwen3.6-27b",
+        "base_url": "https://api.groq.com/openai/v1",
+        "env_key": "GROQ_API_KEY",
+        "doc": "Ultra-fast inference powered by Groq LPU hardware (qwen/qwen3.6-27b).",
+    },
 }
 
 
@@ -87,10 +95,7 @@ def get_provider_metadata() -> List[Dict[str, Any]]:
 
 
 class UnifiedTriageAgent:
-    """
-    Unified Tier-2 SOC Analyst Agent that executes reasoning across
-    Google Gemini (via Antigravity) or any OpenAI-compatible provider (Kimi, GLM, Yi, DeepSeek).
-    """
+    
 
     def __init__(
         self,
@@ -217,7 +222,7 @@ class UnifiedTriageAgent:
         endpoint = f"{self.base_url}/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MalwSentinel/2.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

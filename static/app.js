@@ -791,8 +791,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (selectedPid === 'lmstudio') {
         envKeyStatusText.textContent = '💡 LM Studio runs locally at http://127.0.0.1:1234/v1. No API key required!';
+      } else if (selectedPid === 'groq') {
+        envKeyStatusText.textContent = '⚡ Groq LPU provides sub-second inference. Defaults to GROQ_API_KEY in .env.';
       } else if (selectedPid === 'openrouter') {
-        envKeyStatusText.textContent = '🚀 OpenRouter free models require a free API key from openrouter.ai. Models ending with :free are 100% free.';
+        envKeyStatusText.textContent = '🚀 OpenRouter free models require an API key from openrouter.ai.';
       } else {
         envKeyStatusText.textContent = `💡 Server defaults to ${p.env_key} in .env if left blank.`;
       }
