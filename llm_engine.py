@@ -35,10 +35,10 @@ PROVIDER_PRESETS = {
         "id": "openrouter",
         "name": "OpenRouter (Free Models)",
         "icon": "🚀",
-        "default_model": "deepseek/deepseek-r1:free",
+        "default_model": "minimax/minimax-m3:free",
         "base_url": "https://openrouter.ai/api/v1",
         "env_key": "OPENROUTER_API_KEY",
-        "doc": "Access 100% free models via OpenRouter (e.g. deepseek/deepseek-r1:free, meta-llama/llama-3.3-70b-instruct:free).",
+        "doc": "Access 100% free models via OpenRouter (e.g. minimax/minimax-m3:free, nvidia/nemotron-3.5-lightning:free).",
     },
 }
 
@@ -104,7 +104,7 @@ class UnifiedTriageAgent:
     ):
         load_env_file()
         self.provider = provider.lower() if provider else "gemini"
-        preset = PROVIDER_PRESETS.get(self.provider, PROVIDER_PRESETS["custom"])
+        preset = PROVIDER_PRESETS.get(self.provider, PROVIDER_PRESETS.get("openrouter", PROVIDER_PRESETS["gemini"]))
 
         self.model = model or preset["default_model"]
         self.base_url = (base_url or preset["base_url"]).rstrip("/")

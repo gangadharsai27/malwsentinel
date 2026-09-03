@@ -355,7 +355,7 @@ async def analyze_file(request):
         custom_key = str(form.get("api_key", "")).strip() or None
         base_url = str(form.get("base_url", "")).strip() or None
 
-        preset_info = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS["custom"])
+        preset_info = PROVIDER_PRESETS.get(provider) or PROVIDER_PRESETS.get("openrouter") or list(PROVIDER_PRESETS.values())[0]
         provider_display = f"{preset_info['name']} ({model or preset_info['default_model']})"
 
         # 1. Evaluate Containment Policy for all static actions
