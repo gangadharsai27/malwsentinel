@@ -178,8 +178,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     currentTargetText.textContent = file.name;
     const sizeKb = (file.size / 1024).toFixed(1);
-    targetSizeText.textContent = `${sizeKb} KB`;
-    logTerminal(`Custom binary staged for triage: ${file.name} (${sizeKb} KB)`, 'cyan');
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    targetSizeText.textContent = file.size > 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+
+    const isCloud = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    if (file.size > 4.5 * 1024 * 1024 && isCloud) {
+      logTerminal(`[!] Warning: ${file.name} is ${sizeMb} MB. Vercel Serverless limits uploads to 4.5 MB. Run locally on http://localhost:8000 for unlimited file sizes.`, 'amber');
+    } else {
+      logTerminal(`Custom binary staged for triage: ${file.name} (${targetSizeText.textContent})`, 'cyan');
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -219,6 +226,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     logTerminal('=== STARTING MALWSENTINEL TIER-2 STATIC TRIAGE PROTOCOL ===', 'cyan');
 
+    const isCloud = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    if (currentFile && isCloud && currentFile.size > 4.5 * 1024 * 1024) {
+      const sizeMb = (currentFile.size / (1024 * 1024)).toFixed(1);
+      const msg = `Payload Too Large: ${currentFile.name} is ${sizeMb} MB. Vercel Serverless limits uploads to 4.5 MB. Please select a sample under 4.5 MB or run MalwSentinel locally on http://localhost:8000 for unlimited file sizes!`;
+      logTerminal(`[!] ${msg}`, 'crimson');
+      alert(msg);
+      startAnalysisBtn.disabled = false;
+      analysisSpinner.classList.add('hidden');
+      return;
+    }
+
     const formData = new FormData();
     if (currentFile) {
       formData.append('file', currentFile);
@@ -240,7 +258,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned HTTP ${response.status}`);
+        if (response.status === 413) {
+          throw new Error('Payload Too Large (HTTP 413): The uploaded file exceeds the 4.5 MB Vercel Serverless limit. To triage large files without limits, run MalwSentinel locally on http://localhost:8000!');
+        }
+        let errMsg = `Server returned HTTP ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData && errData.message) errMsg = errData.message;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
